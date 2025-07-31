@@ -1,6 +1,29 @@
-from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QMessageBox, QPushButton, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget
-from PySide6.QtGui import QAction
-from main_widget import Main_Widget
+from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QMessageBox, QPushButton, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog
+
+class Main_Widget(QWidget):
+    def __init__(self):
+
+        super().__init__()
+
+        task_list_lable = QLabel("Task Lists")
+
+        self.list_of_lists = QListWidget(self)
+        self.list_of_lists.setMinimumSize(300, 1000)
+        self.list_of_lists.setMaximumSize(700, 2000)
+
+        task_list_layout = QVBoxLayout()
+        task_list_layout.addWidget(task_list_lable)
+        task_list_layout.addWidget(self.list_of_lists)
+
+        self.tasks_widget = QListWidget()
+        self.tasks_widget.setMinimumSize(700, 1000)
+        self.tasks_widget.setMaximumSize(2000, 2000)
+
+        layout = QHBoxLayout()
+        layout.addLayout(task_list_layout)
+        layout.addWidget(self.tasks_widget)
+
+        self.setLayout(layout)
 
 class Window(QMainWindow):
     def __init__(self, app):
@@ -14,7 +37,9 @@ class Window(QMainWindow):
 
         file_menu =  menu_bar.addMenu("&File")
         new_task = file_menu.addAction("New Task")
+        new_task.triggered.connect(self.add_task_func)
         new_list = file_menu.addAction("New List")
+        new_list.triggered.connect(self.add_list_func)
         save = file_menu.addAction("Save")
         save_as = file_menu.addAction("Save As")
         exit_app = file_menu.addAction("Exit")
@@ -60,3 +85,13 @@ class Window(QMainWindow):
         main_widget = Main_Widget()
 
         self.setCentralWidget(main_widget)
+
+    def add_task_func(self):
+        text, ok = QInputDialog.getText(self, "Add New Task", "Enter Task name:")
+        if ok and text:
+            self.centralWidget().tasks_widget.addItem(text)
+
+    def add_list_func(self):
+        text, ok = QInputDialog.getText(self, "Add New List", "Enter List name:")
+        if ok and text:
+            self.centralWidget().list_of_lists.addItem(text)
