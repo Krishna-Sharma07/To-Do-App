@@ -1,15 +1,18 @@
-from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QMessageBox, QPushButton, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog
+from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog
 
 class Main_Widget(QWidget):
     def __init__(self):
 
         super().__init__()
+        self.tasks_by_list = {}
 
         task_list_lable = QLabel("Task Lists")
 
         self.list_of_lists = QListWidget(self)
         self.list_of_lists.setMinimumSize(300, 1000)
         self.list_of_lists.setMaximumSize(700, 2000)
+
+        self.list_of_lists.currentItemChanged.connect(self.display)
 
         task_list_layout = QVBoxLayout()
         task_list_layout.addWidget(task_list_lable)
@@ -24,6 +27,28 @@ class Main_Widget(QWidget):
         layout.addWidget(self.tasks_widget)
 
         self.setLayout(layout)
+
+    def add_list(self, list_name):
+        if list_name and not any(self.list_of_lists.item(i).text() == list_name for i in range(self.list_of_lists.count())):
+            self.tasks_by_list[list_name] = []
+            self.list_of_lists.addItem(list_name)
+
+
+    def add_task(self, task):
+        current_list = self.list_of_lists.currentItem().text()
+        if current_list:
+            self.tasks_by_list[current_list].append(task)
+            self.display()
+
+    def display(self):
+        current_list = self.list_of_lists.currentItem()
+        if not current_list:
+            return
+        list_name = current_list.text()
+        self.tasks_widget.clear()
+        for task in self.tasks_by_list.get(list_name, []):
+            self.tasks_widget.addItem(task)
+
 
 class Window(QMainWindow):
     def __init__(self, app):
@@ -52,6 +77,8 @@ class Window(QMainWindow):
         paste = edit_menu.addAction("Paste")
         delete_task = edit_menu.addAction("Delete Task")
         edit_task = edit_menu.addAction("Edit Task")
+        delete_list = edit_menu.addAction("Delete List")
+        edit_list = edit_menu.addAction("Edit List")
 
         task_menu = menu_bar.addMenu("&Task")
         complete = task_menu.addAction("Mark Complete")
@@ -74,6 +101,7 @@ class Window(QMainWindow):
         self.addToolBar(tool_bar)
 
         add_task = QPushButton("+ Add Task")
+        add_task.clicked.connect(self.add_task_func)
         search_task_lable = QLabel("        Search Task:   ")
         search_task = QLineEdit()
 
@@ -87,11 +115,19 @@ class Window(QMainWindow):
         self.setCentralWidget(main_widget)
 
     def add_task_func(self):
-        text, ok = QInputDialog.getText(self, "Add New Task", "Enter Task name:")
-        if ok and text:
-            self.centralWidget().tasks_widget.addItem(text)
+        try:
+            current_item = self.centralWidget().list_of_lists.currentItem()
+            if not current_item:
+                raise ValueError("No list selected. Please create or select a task list first.")
+
+            text, ok = QInputDialog.getText(self, "New Task", "Enter task:")
+            if ok and text:
+                self.centralWidget().add_task(text)
+
+        except ValueError as e:
+            QMessageBox.critical(self, "Error", str(e))
 
     def add_list_func(self):
         text, ok = QInputDialog.getText(self, "Add New List", "Enter List name:")
         if ok and text:
-            self.centralWidget().list_of_lists.addItem(text)
+            self.centralWidget().add_list(text)
