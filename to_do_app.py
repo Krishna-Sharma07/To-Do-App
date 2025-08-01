@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog
+from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog, QFileDialog
+import json
 
 class Main_Widget(QWidget):
     def __init__(self):
@@ -49,6 +50,17 @@ class Main_Widget(QWidget):
         for task in self.tasks_by_list.get(list_name, []):
             self.tasks_widget.addItem(task)
 
+    def get_data(self):
+        return self.tasks_by_list
+
+    def load_data(self, data):
+        self.tasks_by_list = data
+        self.list_of_lists.clear()
+        self.tasks_widget.clear()
+        for list_name in data:
+            self.list_of_lists.addItem(list_name)
+
+
 
 class Window(QMainWindow):
     def __init__(self, app):
@@ -66,7 +78,7 @@ class Window(QMainWindow):
         new_list = file_menu.addAction("New List")
         new_list.triggered.connect(self.add_list_func)
         save = file_menu.addAction("Save")
-        save_as = file_menu.addAction("Save As")
+        load = file_menu.addAction("Load")
         exit_app = file_menu.addAction("Exit")
 
         edit_menu = menu_bar.addMenu("&Edit")
@@ -131,3 +143,25 @@ class Window(QMainWindow):
         text, ok = QInputDialog.getText(self, "Add New List", "Enter List name:")
         if ok and text:
             self.centralWidget().add_list(text)
+
+    def save_to_file(self):
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Task Lists", "", "JSON Files (*.json)")
+        if filename:
+            try:
+                data = self.centralWidget().get_data()
+                with open(filename, 'w') as f:
+                    json.dump(data, f, indent=4)
+                QMessageBox.information(self, "Success", "Task lists saved successfully!")
+            except Exception as e:
+                QMessageBox.critical(self, "Save Failed", str(e))
+
+    def load_from_file(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Load Task Lists", "", "JSON Files (*.json)")
+        if filename:
+            try:
+                with open(filename, 'r') as f:
+                    data = json.load(f)
+                self.centralWidget().load_data(data)
+                QMessageBox.information(self, "Success", "Task lists loaded successfully!")
+            except Exception as e:
+                QMessageBox.critical(self, "Load Failed", str(e))
