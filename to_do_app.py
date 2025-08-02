@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog, QFileDialog
 import json
+from PySide6.QtCore import Qt
 
 class Main_Widget(QWidget):
     def __init__(self):
@@ -60,6 +61,14 @@ class Main_Widget(QWidget):
         for list_name in data:
             self.list_of_lists.addItem(list_name)
 
+    def toggle_task_status(self, item):
+        current_item = self.list_of_lists.currentItem()
+        if current_item:
+            list_name = current_item.text()
+            for task in self.tasks_by_list[list_name]:
+                if task["text"] == item.text():
+                    task["completed"] = (item.checkState() == Qt.Checked)
+
 
 
 class Window(QMainWindow):
@@ -78,8 +87,11 @@ class Window(QMainWindow):
         new_list = file_menu.addAction("New List")
         new_list.triggered.connect(self.add_list_func)
         save = file_menu.addAction("Save")
+        save.triggered.connect(self.save_to_file)
         load = file_menu.addAction("Load")
+        load.triggered.connect(self.load_from_file)
         exit_app = file_menu.addAction("Exit")
+        exit_app.triggered.connect(self.quit)
 
         edit_menu = menu_bar.addMenu("&Edit")
         undo = edit_menu.addAction("Undo")
@@ -94,7 +106,9 @@ class Window(QMainWindow):
 
         task_menu = menu_bar.addMenu("&Task")
         complete = task_menu.addAction("Mark Complete")
+        complete.triggered.connect(self.mark_complete)
         incomplete = task_menu.addAction("Mark Incomplete")
+        incomplete.triggered.connect(self.mark_incomplete)
         priority = task_menu.addAction("Set Priority")
         due_date = task_menu.addAction("Set Due Date")
         reminder = task_menu.addAction("Set Reminder")
@@ -165,3 +179,18 @@ class Window(QMainWindow):
                 QMessageBox.information(self, "Success", "Task lists loaded successfully!")
             except Exception as e:
                 QMessageBox.critical(self, "Load Failed", str(e))
+
+    def quit(self):
+        self.app.quit()
+
+    def mark_complete(self):
+        task_widget = self.centralWidget().tasks_widget
+        item = task_widget.currentItem()
+        if item:
+            item.setCheckState(Qt.Checked)
+
+    def mark_incomplete(self):
+        task_widget = self.centralWidget().tasks_widget
+        item = task_widget.currentItem()
+        if item:
+            item.setCheckState(Qt.Unchecked)
