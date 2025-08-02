@@ -1,0 +1,35 @@
+{
+    "tasks": {
+        "dwadawdawd": [
+            "dawdaw",
+            "dawdawdaw",
+            "dawda",
+            "dddd"
+        ],
+        "dawda": [
+            "dawd",
+            "dddd",
+            "dddada"
+        ]
+    },
+    "states": {
+        "dawdaw": {
+            "completed": false
+        },
+        "dawdawdaw": {
+            "completed": false
+        },
+        "dawda": {
+            "completed": false
+        },
+        "dddd": {
+            "completed": true
+        },
+        "dawd": {
+            "completed": true
+        },
+        "dddada": {
+            "completed": false
+        }
+    }
+}

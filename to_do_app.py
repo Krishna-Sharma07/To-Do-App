@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog, QFileDialog
+from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog, QFileDialog, QListWidgetItem
 import json
 from PySide6.QtCore import Qt
 
@@ -21,12 +21,16 @@ class Main_Widget(QWidget):
         task_list_layout.addWidget(self.list_of_lists)
 
         self.tasks_widget = QListWidget()
+        self.tasks_widget.itemChanged.connect(self.toggle_task_status)
         self.tasks_widget.setMinimumSize(700, 1000)
         self.tasks_widget.setMaximumSize(2000, 2000)
 
         layout = QHBoxLayout()
         layout.addLayout(task_list_layout)
         layout.addWidget(self.tasks_widget)
+
+        self.current_filter = "All"
+        self.task_states = {}
 
         self.setLayout(layout)
 
@@ -43,31 +47,47 @@ class Main_Widget(QWidget):
             self.display()
 
     def display(self):
-        current_list = self.list_of_lists.currentItem()
-        if not current_list:
-            return
-        list_name = current_list.text()
         self.tasks_widget.clear()
-        for task in self.tasks_by_list.get(list_name, []):
-            self.tasks_widget.addItem(task)
+        current_item = self.list_of_lists.currentItem()
+        if not current_item:
+            return
+        list_name = current_item.text()
+
+        for task_text in self.tasks_by_list[list_name]:
+            if task_text not in self.task_states:
+                self.task_states[task_text] = {"completed": False}
+
+            if self.current_filter == "Completed" and not self.task_states[task_text]["completed"]:
+                continue
+            if self.current_filter == "Pending" and self.task_states[task_text]["completed"]:
+                continue
+
+            item = QListWidgetItem(task_text)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Checked if self.task_states[task_text]["completed"] else Qt.Unchecked)
+            self.tasks_widget.addItem(item)
 
     def get_data(self):
-        return self.tasks_by_list
+        return {
+            "tasks": self.tasks_by_list,
+            "states": self.task_states
+        }
 
     def load_data(self, data):
-        self.tasks_by_list = data
+        self.tasks_by_list = data.get("tasks", {})
+        self.task_states = data.get("states", {})
         self.list_of_lists.clear()
         self.tasks_widget.clear()
-        for list_name in data:
+        for list_name in self.tasks_by_list:
             self.list_of_lists.addItem(list_name)
 
     def toggle_task_status(self, item):
-        current_item = self.list_of_lists.currentItem()
-        if current_item:
-            list_name = current_item.text()
-            for task in self.tasks_by_list[list_name]:
-                if task["text"] == item.text():
-                    task["completed"] = (item.checkState() == Qt.Checked)
+        task_text = item.text()
+        self.task_states[task_text] = {"completed": (item.checkState() == Qt.Checked)}
+
+    def set_filter(self, filter_type):
+        self.current_filter = filter_type
+        self.display()
 
 
 
@@ -91,7 +111,7 @@ class Window(QMainWindow):
         load = file_menu.addAction("Load")
         load.triggered.connect(self.load_from_file)
         exit_app = file_menu.addAction("Exit")
-        exit_app.triggered.connect(self.quit)
+        exit_app.triggered.connect(lambda: self.app.quit())
 
         edit_menu = menu_bar.addMenu("&Edit")
         undo = edit_menu.addAction("Undo")
@@ -116,8 +136,11 @@ class Window(QMainWindow):
 
         view_menu = menu_bar.addMenu("&View")
         all_task = view_menu.addAction("All Tasks")
+        all_task.triggered.connect(lambda: self.centralWidget().set_filter("All"))
         completed = view_menu.addAction("Completed Tasks")
+        completed.triggered.connect(lambda: self.centralWidget().set_filter("Completed"))
         pending = view_menu.addAction("Pending Tasks")
+        pending.triggered.connect(lambda: self.centralWidget().set_filter("Pending"))
         overdue = view_menu.addAction("Overdue Tasks")
         sort_by = view_menu.addAction("Sort by")
         filter_by = view_menu.addAction("Filter by")
@@ -180,8 +203,6 @@ class Window(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Load Failed", str(e))
 
-    def quit(self):
-        self.app.quit()
 
     def mark_complete(self):
         task_widget = self.centralWidget().tasks_widget
@@ -194,3 +215,6 @@ class Window(QMainWindow):
         item = task_widget.currentItem()
         if item:
             item.setCheckState(Qt.Unchecked)
+
+    
+
