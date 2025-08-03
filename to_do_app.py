@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (QMainWindow, QSizePolicy, QToolBar ,QWidget, QPus
                             QDateEdit, QDialog, QTimeEdit)
 import json
 from PySide6.QtCore import Qt, QDate, QTime
+from datetime import datetime
 
 class Main_Widget(QWidget):
     def __init__(self):
@@ -70,6 +71,15 @@ class Main_Widget(QWidget):
                 continue
             if self.current_filter == "Pending" and task["completed"]:
                 continue
+            if self.current_filter == "Overdue":
+                if not task["due"]:
+                    continue
+                try:
+                    due_date = datetime.strptime(task["due"], "%Y-%m-%d").date()
+                    if due_date >= datetime.today().date() or task["completed"]:
+                        continue
+                except ValueError:
+                    continue 
 
             display_text = task["text"]
 
@@ -209,6 +219,33 @@ class Main_Widget(QWidget):
                         task["reminder"] = reminder_str
                         break
                 self.display()
+    
+    def sort_tasks(self, sort_type):
+        current_list_item = self.list_of_lists.currentItem()
+        if not current_list_item:
+            return
+        list_name = current_list_item.text()
+
+        if sort_type == "Name":
+            self.tasks_by_list[list_name].sort(key=lambda x: x["text"].lower())
+
+        elif sort_type == "Due Date":
+            from datetime import datetime
+            self.tasks_by_list[list_name].sort(
+                key=lambda x: datetime.strptime(x["due"], "%Y-%m-%d") if x["due"] else datetime.max
+            )
+
+        elif sort_type == "Priority":
+            priority_order = {"High": 1, "Medium": 2, "Low": 3}
+            self.tasks_by_list[list_name].sort(
+                key=lambda x: priority_order.get(x["priority"], 4)
+            )
+
+        elif sort_type == "Completion":
+            self.tasks_by_list[list_name].sort(key=lambda x: x["completed"])
+
+        self.display()
+
 
 
 class Window(QMainWindow):
@@ -264,7 +301,17 @@ class Window(QMainWindow):
         pending = view_menu.addAction("Pending Tasks")
         pending.triggered.connect(lambda: self.centralWidget().set_filter("Pending"))
         overdue = view_menu.addAction("Overdue Tasks")
-        sort_by = view_menu.addAction("Sort by")
+        overdue.triggered.connect(lambda: self.centralWidget().set_filter("Overdue"))
+        sort_menu = view_menu.addMenu("Sort by")
+        sort_name = sort_menu.addAction("Name (A-Z)")
+        sort_due = sort_menu.addAction("Due Date (Earliest First)")
+        sort_priority = sort_menu.addAction("Priority (High -> Low)")
+        sort_completion = sort_menu.addAction("Completion Status")
+        sort_name.triggered.connect(lambda: self.centralWidget().sort_tasks("Name"))
+        sort_due.triggered.connect(lambda: self.centralWidget().sort_tasks("Due Date"))
+        sort_priority.triggered.connect(lambda: self.centralWidget().sort_tasks("Priority"))
+        sort_completion.triggered.connect(lambda: self.centralWidget().sort_tasks("Completion"))
+
         dark_mode = view_menu.addAction("Dark Mode")
         self.dark_mode_enabled = False
         dark_mode.triggered.connect(self.toggle_dark_mode)
