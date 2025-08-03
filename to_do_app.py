@@ -1,6 +1,9 @@
-from PySide6.QtWidgets import QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, QListWidget, QInputDialog, QFileDialog, QListWidgetItem
+from PySide6.QtWidgets import (QMainWindow, QSizePolicy, QToolBar ,QWidget, QPushButton, 
+                            QMessageBox, QLineEdit, QLabel, QVBoxLayout, QHBoxLayout, 
+                            QListWidget, QInputDialog, QFileDialog, QListWidgetItem, 
+                            QDateEdit, QDialog, QTimeEdit)
 import json
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QDate, QTime
 
 class Main_Widget(QWidget):
     def __init__(self):
@@ -30,7 +33,6 @@ class Main_Widget(QWidget):
         layout.addWidget(self.tasks_widget)
 
         self.current_filter = "All"
-        self.task_states = {}
 
         self.setLayout(layout)
 
@@ -40,11 +42,21 @@ class Main_Widget(QWidget):
             self.list_of_lists.addItem(list_name)
 
 
-    def add_task(self, task):
-        current_list = self.list_of_lists.currentItem().text()
-        if current_list:
-            self.tasks_by_list[current_list].append(task)
+
+    def add_task(self, task_text):
+        current_list_item = self.list_of_lists.currentItem()
+        if current_list_item:
+            list_name = current_list_item.text()
+            task_data = {
+                "text": task_text,
+                "completed": False,
+                "priority": "Low", 
+                "due": None, 
+                "reminder": None
+            }
+            self.tasks_by_list[list_name].append(task_data)
             self.display()
+
 
     def display(self):
         self.tasks_widget.clear()
@@ -53,42 +65,150 @@ class Main_Widget(QWidget):
             return
         list_name = current_item.text()
 
-        for task_text in self.tasks_by_list[list_name]:
-            if task_text not in self.task_states:
-                self.task_states[task_text] = {"completed": False}
-
-            if self.current_filter == "Completed" and not self.task_states[task_text]["completed"]:
+        for task in self.tasks_by_list[list_name]:
+            if self.current_filter == "Completed" and not task["completed"]:
                 continue
-            if self.current_filter == "Pending" and self.task_states[task_text]["completed"]:
+            if self.current_filter == "Pending" and task["completed"]:
                 continue
 
-            item = QListWidgetItem(task_text)
+            display_text = task["text"]
+
+            if task["priority"] == "High":
+                display_text = "★ " + display_text
+            elif task["priority"] == "Medium":
+                display_text = "☆ " + display_text  
+
+            extras = []
+            if task["due"]:
+                extras.append(f"Due: {task['due']}")
+            if task["reminder"]:
+                extras.append(f"Remind: {task['reminder']}")
+
+            if extras:
+                display_text += "  (" + ", ".join(extras) + ")"
+
+            item = QListWidgetItem(display_text)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Checked if self.task_states[task_text]["completed"] else Qt.Unchecked)
+            item.setCheckState(Qt.Checked if task["completed"] else Qt.Unchecked)
             self.tasks_widget.addItem(item)
 
     def get_data(self):
-        return {
-            "tasks": self.tasks_by_list,
-            "states": self.task_states
-        }
+        return self.tasks_by_list
+
 
     def load_data(self, data):
-        self.tasks_by_list = data.get("tasks", {})
-        self.task_states = data.get("states", {})
+        self.tasks_by_list = data
         self.list_of_lists.clear()
         self.tasks_widget.clear()
         for list_name in self.tasks_by_list:
             self.list_of_lists.addItem(list_name)
 
     def toggle_task_status(self, item):
-        task_text = item.text()
-        self.task_states[task_text] = {"completed": (item.checkState() == Qt.Checked)}
+        current_list_item = self.list_of_lists.currentItem()
+        if current_list_item:
+            list_name = current_list_item.text()
+
+            base_text = item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
+
+            for task in self.tasks_by_list[list_name]:
+                if task["text"] == base_text:
+                    task["completed"] = (item.checkState() == Qt.Checked)
+                    break
+
 
     def set_filter(self, filter_type):
         self.current_filter = filter_type
         self.display()
 
+    def set_priority(self):
+        current_list_item = self.list_of_lists.currentItem()
+        task_item = self.tasks_widget.currentItem()
+
+        if current_list_item and task_item:
+            list_name = current_list_item.text()
+            base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
+
+            priorities = ["High", "Medium", "Low"]
+            priority, ok = QInputDialog.getItem(self, "Set Priority", "Select priority:", priorities, 2, False)
+
+            if ok:
+                for task in self.tasks_by_list[list_name]:
+                    if task["text"] == base_text:
+                        task["priority"] = priority
+                        break
+                self.display()
+
+    def set_due_date(self):
+        current_list_item = self.list_of_lists.currentItem()
+        task_item = self.tasks_widget.currentItem()
+
+        if current_list_item and task_item:
+            list_name = current_list_item.text()
+            base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
+
+            date_dialog = QDialog(self)
+            date_dialog.setWindowTitle("Set Due Date")
+            layout = QVBoxLayout()
+
+            label = QLabel("Select Due Date:")
+            date_edit = QDateEdit()
+            date_edit.setCalendarPopup(True)
+            date_edit.setDate(QDate.currentDate())
+
+            save_btn = QPushButton("Set Due Date")
+            save_btn.clicked.connect(date_dialog.accept)
+
+            layout.addWidget(label)
+            layout.addWidget(date_edit)
+            layout.addWidget(save_btn)
+            date_dialog.setLayout(layout)
+
+            if date_dialog.exec():
+                due_date_str = date_edit.date().toString("yyyy-MM-dd")
+                for task in self.tasks_by_list[list_name]:
+                    if task["text"] == base_text:
+                        task["due"] = due_date_str
+                        break
+                self.display()
+
+    def set_reminder(self):
+        current_list_item = self.list_of_lists.currentItem()
+        task_item = self.tasks_widget.currentItem()
+
+        if current_list_item and task_item:
+            list_name = current_list_item.text()
+            base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
+
+            reminder_dialog = QDialog(self)
+            reminder_dialog.setWindowTitle("Set Reminder")
+            layout = QVBoxLayout()
+
+            date_label = QLabel("Select Reminder Date:")
+            date_edit = QDateEdit()
+            date_edit.setCalendarPopup(True)
+            date_edit.setDate(QDate.currentDate())
+
+            time_label = QLabel("Select Reminder Time:")
+            time_edit = QTimeEdit()
+            time_edit.setTime(QTime.currentTime())
+
+            save_btn = QPushButton("Set Reminder")
+            save_btn.clicked.connect(reminder_dialog.accept)
+
+            layout.addWidget(date_label)
+            layout.addWidget(date_edit)
+            layout.addWidget(time_label)
+            layout.addWidget(time_edit)
+            layout.addWidget(save_btn)
+            reminder_dialog.setLayout(layout)
+
+            if reminder_dialog.exec():
+                reminder_str = f"{date_edit.date().toString('yyyy-MM-dd')} {time_edit.time().toString('HH:mm')}"
+                for task in self.tasks_by_list[list_name]:
+                    if task["text"] == base_text:
+                        task["reminder"] = reminder_str
+                        break
+                self.display()
 
 
 class Window(QMainWindow):
@@ -130,9 +250,11 @@ class Window(QMainWindow):
         incomplete = task_menu.addAction("Mark Incomplete")
         incomplete.triggered.connect(self.mark_incomplete)
         priority = task_menu.addAction("Set Priority")
+        priority.triggered.connect(lambda: self.centralWidget().set_priority())
         due_date = task_menu.addAction("Set Due Date")
+        due_date.triggered.connect(lambda: self.centralWidget().set_due_date())
         reminder = task_menu.addAction("Set Reminder")
-        repeat_task = task_menu.addAction("Repeat Task")
+        reminder.triggered.connect(lambda: self.centralWidget().set_reminder())
 
         view_menu = menu_bar.addMenu("&View")
         all_task = view_menu.addAction("All Tasks")
@@ -143,7 +265,6 @@ class Window(QMainWindow):
         pending.triggered.connect(lambda: self.centralWidget().set_filter("Pending"))
         overdue = view_menu.addAction("Overdue Tasks")
         sort_by = view_menu.addAction("Sort by")
-        filter_by = view_menu.addAction("Filter by")
         dark_mode = view_menu.addAction("Dark Mode")
         self.dark_mode_enabled = False
         dark_mode.triggered.connect(self.toggle_dark_mode)
@@ -151,11 +272,14 @@ class Window(QMainWindow):
         tool_bar = QToolBar()
         self.addToolBar(tool_bar)
 
+        add_list = QPushButton("+ Add List")
+        add_list.clicked.connect(self.add_list_func)
         add_task = QPushButton("+ Add Task")
         add_task.clicked.connect(self.add_task_func)
         search_task_lable = QLabel("        Search Task:   ")
         search_task = QLineEdit()
 
+        tool_bar.addWidget(add_list)
         tool_bar.addWidget(add_task)
         tool_bar.addSeparator()
         tool_bar.addWidget(search_task_lable)
@@ -211,15 +335,18 @@ class Window(QMainWindow):
         item = task_widget.currentItem()
         if item:
             item.setCheckState(Qt.Checked)
+            self.centralWidget().toggle_task_status(item)
 
     def mark_incomplete(self):
         task_widget = self.centralWidget().tasks_widget
         item = task_widget.currentItem()
         if item:
             item.setCheckState(Qt.Unchecked)
+            self.centralWidget().toggle_task_status(item)
+
 
     def toggle_dark_mode(self):
-        if hasattr(self, "dark_mode_enabled") and self.dark_mode_enabled:
+        if self.dark_mode_enabled:
             self.setStyleSheet("")
             self.dark_mode_enabled = False
         else:
@@ -267,5 +394,3 @@ class Window(QMainWindow):
                 }
             """)
             self.dark_mode_enabled = True
-
-
