@@ -145,6 +145,8 @@ class Window(QMainWindow):
         sort_by = view_menu.addAction("Sort by")
         filter_by = view_menu.addAction("Filter by")
         dark_mode = view_menu.addAction("Dark Mode")
+        self.dark_mode_enabled = False
+        dark_mode.triggered.connect(self.toggle_dark_mode)
 
         tool_bar = QToolBar()
         self.addToolBar(tool_bar)
@@ -216,5 +218,54 @@ class Window(QMainWindow):
         if item:
             item.setCheckState(Qt.Unchecked)
 
-    
+    def toggle_dark_mode(self):
+        if hasattr(self, "dark_mode_enabled") and self.dark_mode_enabled:
+            self.setStyleSheet("")
+            self.dark_mode_enabled = False
+        else:
+            self.setStyleSheet("""
+                QMainWindow {
+                    background-color: #121212;
+                    color: white;
+                }
+                QWidget {
+                    background-color: #121212;
+                    color: white;
+                }
+                QPushButton {
+                    background-color: #1E1E1E;
+                    color: white;
+                    border: 1px solid #333;
+                    padding: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #333;
+                }
+                QLineEdit {
+                    background-color: #1E1E1E;
+                    color: white;
+                    border: 1px solid #333;
+                }
+                QListWidget {
+                    background-color: #1E1E1E;
+                    color: white;
+                    border: 1px solid #333;
+                }
+                QMenuBar {
+                    background-color: #1E1E1E;
+                    color: white;
+                }
+                QMenuBar::item:selected {
+                    background-color: #333;
+                }
+                QMenu {
+                    background-color: #1E1E1E;
+                    color: white;
+                }
+                QMenu::item:selected {
+                    background-color: #333;
+                }
+            """)
+            self.dark_mode_enabled = True
+
 
