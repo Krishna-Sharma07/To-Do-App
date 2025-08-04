@@ -252,13 +252,10 @@ class Main_Widget(QWidget):
 
         if current_list_item and task_item:
             list_name = current_list_item.text()
-            # Remove stars and extra info
             base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
 
-            # Find the task
             for task in self.tasks_by_list[list_name]:
                 if task["text"] == base_text:
-                    from PySide6.QtWidgets import QInputDialog
                     new_text, ok = QInputDialog.getText(self, "Edit Task", "Update task:", text=task["text"])
                     if ok and new_text.strip():
                         task["text"] = new_text.strip()
@@ -273,7 +270,6 @@ class Main_Widget(QWidget):
             list_name = current_list_item.text()
             base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
 
-            # Remove from list
             self.tasks_by_list[list_name] = [
                 t for t in self.tasks_by_list[list_name] if t["text"] != base_text
             ]
@@ -283,22 +279,19 @@ class Main_Widget(QWidget):
         current_list_item = self.list_of_lists.currentItem()
         if current_list_item:
             list_name = current_list_item.text()
-            from PySide6.QtWidgets import QInputDialog
             new_name, ok = QInputDialog.getText(self, "Edit List", "Update list name:", text=list_name)
             if ok and new_name.strip():
                 new_name = new_name.strip()
-                if new_name not in self.tasks_by_list:  # Avoid duplicates
+                if new_name not in self.tasks_by_list: 
                     self.tasks_by_list[new_name] = self.tasks_by_list.pop(list_name)
                     current_list_item.setText(new_name)
                 else:
-                    from PySide6.QtWidgets import QMessageBox
                     QMessageBox.warning(self, "Duplicate List", "A list with this name already exists.")
 
     def delete_list(self):
         current_list_item = self.list_of_lists.currentItem()
         if current_list_item:
             list_name = current_list_item.text()
-            from PySide6.QtWidgets import QMessageBox
             reply = QMessageBox.question(
                 self, "Delete List", f"Are you sure you want to delete the list '{list_name}' and all its tasks?",
                 QMessageBox.Yes | QMessageBox.No
@@ -307,6 +300,30 @@ class Main_Widget(QWidget):
                 del self.tasks_by_list[list_name]
                 self.list_of_lists.takeItem(self.list_of_lists.currentRow())
                 self.tasks_widget.clear()
+
+    def copy_task(self):
+        current_list_item = self.list_of_lists.currentItem()
+        task_item = self.tasks_widget.currentItem()
+
+        if current_list_item and task_item:
+            list_name = current_list_item.text()
+            base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
+            for task in self.tasks_by_list[list_name]:
+                if task["text"] == base_text:
+                    self.clipboard_task = task.copy()
+                    break
+
+    def cut_task(self):
+        self.copy_task()
+        self.delete_task()
+
+    def paste_task(self):
+        current_list_item = self.list_of_lists.currentItem()
+        if current_list_item and hasattr(self, "clipboard_task") and self.clipboard_task:
+            list_name = current_list_item.text()
+            task_copy = self.clipboard_task.copy()
+            self.tasks_by_list[list_name].append(task_copy)
+            self.display()
 
 
 class Window(QMainWindow):
@@ -332,11 +349,12 @@ class Window(QMainWindow):
         exit_app.triggered.connect(lambda: self.app.quit())
 
         edit_menu = menu_bar.addMenu("&Edit")
-        undo = edit_menu.addAction("Undo")
-        redo = edit_menu.addAction("Redo")
-        cut = edit_menu.addAction("Cut")
-        copy = edit_menu.addAction("Copy")
-        paste = edit_menu.addAction("Paste")
+        cut = edit_menu.addAction("Cut Task")
+        cut.triggered.connect(lambda: self.centralWidget().cut_task())
+        copy = edit_menu.addAction("Copy Task")
+        copy.triggered.connect(lambda: self.centralWidget().copy_task())
+        paste = edit_menu.addAction("Paste Task")
+        paste.triggered.connect(lambda: self.centralWidget().paste_task())
         delete_task = edit_menu.addAction("Delete Task")
         delete_task.triggered.connect(lambda: self.centralWidget().delete_task())
         edit_task = edit_menu.addAction("Edit Task")
