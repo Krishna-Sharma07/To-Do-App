@@ -246,6 +246,67 @@ class Main_Widget(QWidget):
 
         self.display()
 
+    def edit_task(self):
+        current_list_item = self.list_of_lists.currentItem()
+        task_item = self.tasks_widget.currentItem()
+
+        if current_list_item and task_item:
+            list_name = current_list_item.text()
+            # Remove stars and extra info
+            base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
+
+            # Find the task
+            for task in self.tasks_by_list[list_name]:
+                if task["text"] == base_text:
+                    from PySide6.QtWidgets import QInputDialog
+                    new_text, ok = QInputDialog.getText(self, "Edit Task", "Update task:", text=task["text"])
+                    if ok and new_text.strip():
+                        task["text"] = new_text.strip()
+                        self.display()
+                    break
+
+    def delete_task(self):
+        current_list_item = self.list_of_lists.currentItem()
+        task_item = self.tasks_widget.currentItem()
+
+        if current_list_item and task_item:
+            list_name = current_list_item.text()
+            base_text = task_item.text().replace("★ ", "").replace("☆ ", "").split("  (")[0]
+
+            # Remove from list
+            self.tasks_by_list[list_name] = [
+                t for t in self.tasks_by_list[list_name] if t["text"] != base_text
+            ]
+            self.display()
+
+    def edit_list(self): 
+        current_list_item = self.list_of_lists.currentItem()
+        if current_list_item:
+            list_name = current_list_item.text()
+            from PySide6.QtWidgets import QInputDialog
+            new_name, ok = QInputDialog.getText(self, "Edit List", "Update list name:", text=list_name)
+            if ok and new_name.strip():
+                new_name = new_name.strip()
+                if new_name not in self.tasks_by_list:  # Avoid duplicates
+                    self.tasks_by_list[new_name] = self.tasks_by_list.pop(list_name)
+                    current_list_item.setText(new_name)
+                else:
+                    from PySide6.QtWidgets import QMessageBox
+                    QMessageBox.warning(self, "Duplicate List", "A list with this name already exists.")
+
+    def delete_list(self):
+        current_list_item = self.list_of_lists.currentItem()
+        if current_list_item:
+            list_name = current_list_item.text()
+            from PySide6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self, "Delete List", f"Are you sure you want to delete the list '{list_name}' and all its tasks?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                del self.tasks_by_list[list_name]
+                self.list_of_lists.takeItem(self.list_of_lists.currentRow())
+                self.tasks_widget.clear()
 
 
 class Window(QMainWindow):
@@ -277,9 +338,13 @@ class Window(QMainWindow):
         copy = edit_menu.addAction("Copy")
         paste = edit_menu.addAction("Paste")
         delete_task = edit_menu.addAction("Delete Task")
+        delete_task.triggered.connect(lambda: self.centralWidget().delete_task())
         edit_task = edit_menu.addAction("Edit Task")
+        edit_task.triggered.connect(lambda: self.centralWidget().edit_task())
         delete_list = edit_menu.addAction("Delete List")
+        delete_list.triggered.connect(lambda: self.centralWidget().delete_list())
         edit_list = edit_menu.addAction("Edit List")
+        edit_list.triggered.connect(lambda: self.centralWidget().edit_list())
 
         task_menu = menu_bar.addMenu("&Task")
         complete = task_menu.addAction("Mark Complete")
